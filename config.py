@@ -16,12 +16,3 @@ DELIVERY_NUMBER = os.getenv("DELIVERY_NUMBER")
 
 # Groq AI
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-# REYPAS Menu (data, not a secret - stays here)
-MENU = {
-    "1": {"name": "Arepa de Choclo", "price": 3500},
-    "2": {"name": "Arepa de Queso", "price": 4000},
-    "3": {"name": "Arepa Mixta", "price": 5000},
-    "4": {"name": "Arepa con Hogao", "price": 4500},
-    "5": {"name": "Bebida - Agua", "price": 1500},
-}
