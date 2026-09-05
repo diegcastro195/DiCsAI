@@ -11,7 +11,7 @@ DiCsAI is a tool for all businesses that use WhatsApp messages. It is a bot that
 ## Setup
 
 ```bash
-git clone <repo url>
+git clone https://github.com/diegcastro195/DiCsAI.git
 cd DiCsAI
 pip install -r requirements.txt
 ```
