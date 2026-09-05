@@ -1,6 +1,6 @@
 from flask import Flask, request # This import the Flask framework and import 2 tools , flask for crearte server and request to read incoming mensages from Meta
 import requests # This import the requests library to send HTTP requests to Meta API
-from config import ACCESS_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, MENU, CHEF_NUMBER, DELIVERY_NUMBER , GROQ_API_KEY # Goes to the config file and grab the 6 variables that we  can use here in app.p
+from config import ACCESS_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, CHEF_NUMBER, DELIVERY_NUMBER , GROQ_API_KEY # Goes to the config file and grab the 6 variables that we  can use here in app.p
 from groq import Groq
 
 app = Flask(__name__) # It is an object named "app" from the class "Flask" and it recieves the parameter "__name__" Which is a varible that saves the name of the file. flask gets the name of the file where the code was so it can locate the file and create the web server in it.
@@ -23,12 +23,6 @@ def send_message(to, message): # this function is for send messages to the custo
     print(f"Meta status: {response.status_code}")  # ← add this!
     print(f"Meta response: {response.text}")  
 
-"""def get_menu_text(): # this function is for generate the text of the menu that we want to send to the customers, this fuunctions is named "get_menu_text" because it returns the text of the menu that we want to send to the customers
-    menu_text = "🫓 *Bienvenido a REYPAS!* 🫓\n\nElige tu arepa:\n\n" # This is a variable with the first line of the menu 
-    for number, products in MENU.items(): # this is a for loop, key is the number of the menu option and products is the dictionary that contains the name and price of the arepa, we use the items() method to get both the key and the value of each item in the MENU dictionary that we grab from config.py, this is important because we need to loop through all the items in the menu and generate a line of text for each one of them
-        menu_text += f"{number}. {products['name']} - ${products['price']:,}\n"# this line function of the next form : menu_text is the variable += (this means that we are adding more text to the variable menu_text) we use [] to access the name and price of the arepa from the products dictionary and in the final of the line we add ":," to format the price with commas for thousands, this is important because we want to generate a nice looking menu text that we can send to the customers
-    return menu_text
-"""
 @app.route("/webhook", methods=["GET"]) # this line is made up for: "@" this is the decorator symbol, it adds extra behavior to the function that we define directly below it, "app.route" "app" is our flask server and ".route" is a method that we use to connects a URL to a function, when that URL receives a request, that function runs "/webhook" is the last part of the URL that we want to connect to the function and "methods=["GET"]" is for reading incoming messages from Meta API, Meta API sends a GET request to this URL when it wants to verify our webhook, this is important because we need to have this route and this method for be able to connect our server with Meta API and receive messages from the Meta API, if we want to receive messages from Meta API we have to take the python app.py  and ngrok run in terminal without it the bot can't receive messages from Meta API. This line is for tell our Flask server that when it receives a GET request to the "/webhook" URL, it should run the function "verify_webhook" that we define below, this is important because this is how we connect our server with Meta API for the verification process, if we don't include this line or if we make a mistake in it, Meta API won't be able to verify our webhook and we won't be able to receive messages from Meta API
 def verify_webhook(): # This is the function that runs When meta API sends a GET request, it is made up for: "def" this is the keyword for define a function, "verify_webhook" is the name of the function and "()" means that this function doesn't receive any parameters because this function don't need any information of outside.
     mode = request.args.get("hub.mode") # this line save the hub.mode parameter that Meta API sends in the GET request in a variable named "mode", we use "request.args.get" to get the value of the parameter from the URL query string, this is important because Meta API sends this parameter to tell us what is the purpose of the GET request, if we don't include this line or if we make a mistake in it, we won't be able to verify our webhook correctly, "request" is the object that Flask provides to access the incoming request data, "args" is the dictionary  that contains the query parameters of the URL and "get" is the method that we use to get the value of a specific parameter by its name, in this case we want to get the value of "hub.mode" parameter that Meta API sends for verification, this parameter is important because it tells us if the GET request is for verification or for something else, if we don't check this parameter we might end up accepting requests that are not for verification and that could be a security risk this parameter always is named "suscribe" this is the key word. args.get() it's only used for get the query parameters of the URL.
@@ -52,43 +46,6 @@ def receive_message():# it is the function for receive messages from customers a
     except: # this catches any error in the try block (Meta also sends sent/delivered/read notifications without the "messages" key, which raise KeyError here), but now we log the real error instead of silencing it
         pass
     return "OK", 200 # this always runs, error or not, so Meta always gets a valid HTTP response and doesn't retry/disable the webhook
-
-
-""" def handle_message(from_number, msg_text):
-    session = user_sessions.get(from_number, {"step": "menu"}) # This line breaks down as follows: We create a variable named "session", this variable will save the state of the conversation with the customer, "user_sessions"is the dictionary that we defined for save the conversation state of each customer ".get()" is a method that we created for get the conversation state of a specific customer by their phone number , this works of the folloing way: get method is for search a key value in a dictionary (this method is especific only for dictionarys), if the key doesn't exist in the dictionary, it returns a default value named none or we can specify a custom default value, in this case we specify a custom default value that is a dictionary with the key "step" and the value "menu", this means that if the customer's phone number is not in the user_sessions dictionary, we will start a new conversation with that customer and we will set the initial step of the conversation to "menu", some important things is that the get method doesn't save nothing in the user_sessions dictionary, it only returns the value of the key if it exists or the default value if it doesn't exist, if the number does exist the get methond returs the value that have the number in this moment and return us the step that have the key in this moment 
-    # This is a example for the each peticion that make the customer and what step and order etc, the dictionary save
-
-    # {'573116359685': {'step': 'waiting_order'}}
-    # {'573116359685': {'step': 'waiting_address', 'order': {'name': 'Arepa de Choclo', 'price': 3500}}}
-    # {'573116359685': {'step': 'menu', 'order': {'name': 'Arepa de Choclo', 'price': 3500}, 'address': 'Sgsxzcs'}}
-    
-    # for each message that the customer sends to the bot, the step will change too , the step will be overwritten, the dictinary will only save the content of the customer want, for example oder, addres, name of the product etc, but the step will be always overwritten this one won't be saved only it'll be save the last step the customer was left.
-
-    if session["step"] == "menu": # this is a conditional statement if-else, this line wokrs of the next way: "session["step"]" "session" is an dictionary and it are going to search the key "step" in to the diccionaty and it'll valid if the key step have a value named "menu", if the value is the step is menu the block bellow will be executed if the value is not found, it will follow the else statement of the condicional.
-        send_message(from_number, get_menu_text()) # This is the next part of the code if the validation is true we call the function "send_message" that we defined previuslly this function asks us 2 parameters, the first parameter is the phone number of the customer and the second one is other function named "get_menu_text()" it was defined previuslly too, this one is for get the menu to arepas 
-        user_sessions[from_number] = {"step": "waiting_order"} # Ok this line will take the dictionary crated for save states of the customer and could happend two posibilitys things, if the number to cutomer exist it will overwriting the step for the new one ({"step": "waiting_order"} if on the contrary the number doesn't exists this will add the number of the custumer and it will add the step in this case it is the thing that happened.
-    elif session["step"] == "waiting_order": # it is an else if condicional it line does the same thing to previus validation but in this case we'll valid if the value saved in the key to the dictinary "session" is "waiting_order", if the key is equal it will be run the code bellow
-        if msg_text in MENU: # this is a if condicion that valid if the message that customer sent is in the MENU key that we created in our MENU, if message is in the MENU it'll execute the code bellow
-            item = MENU[msg_text] # it works the next way: "MENU" is the menu that we created previuslly, "[msg_text]" it is the number to product that the customer sent to bot and it will search the number to product and finally the name and price to the customer will be saved in a variable named "item"
-            session["order"] = item # it will create the key named "order" to customer in the dictionary that we created previuslly and it will save the variable item in it
-            session["step"] = "waiting_address" # it will overwrites the step that there was for "waiting_address" for next step of the bot
-            user_sessions[from_number] = session # finally it will overwrites all user_session for the customer's number with all variables saved previuslly in the variable "session"
-            send_message(from_number, f"✅ Elegiste: {item['name']} - ${item['price']:,}\n\nAhora envíame tu dirección de entrega:") # It is he messagee that will be send to customer if all previuslly thing were correct executed the message contain the vaiable item['name'] and item['price'] that they are the values of MENU creaated and we are going to say to customer that he haave to text the home addres
-        else: # it is the else conditional and it will be execute if the message that custumer sent is diferent to the keys of the MENU 
-            send_message(from_number, "❌ Opción no válida. Elige un número del menú.") # it will send a message using the  send_message fuction the mesagge in for say to the customer that chose the valid option of Menu
-            send_message(from_number, get_menu_text()) # then it will send the menu again
-
-    elif session["step"] == "waiting_address": # if the step is waiting_addres it will exeute the code bellow
-        session["address"] = msg_text # this automatucallly the customer send message it will save the messaage in a new key named "adress"
-        session["step"] = "menu" # It will update the step to "menu" for procces a new request to customer
-        user_sessions[from_number] = session # and finally we will update the user_session of number to customer 
-        order_summary = f"🛒 *NUEVO PEDIDO REYPAS*\n\n📱 Cliente: {from_number}\n🫓 Pedido: {session['order']['name']}\n💰 Precio: ${session['order']['price']:,}\n📍 Dirección: {msg_text}" # it is a variable named "oder_summary" it will save the finall message ti sent to cheff number and delivery number 
-        send_message(CHEF_NUMBER, order_summary) # here we are goint to use the variable to cheff
-        send_message(DELIVERY_NUMBER, order_summary) # here to delivery 
-        send_message(from_number, "✅ *Pedido confirmado!* Tu arepa está en camino 🛵\n\n¡Gracias por elegir REYPAS!") # and finally we are going to send the finally message to customer to tell them that oder is in way.
-
-    # print(user_sessions) 
-"""
 
 def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and the second one is msg_text that is the message that the customer sent to our whatsapp bot
     if from_number not in user_sessions: # It is a condicional that valid if the number of the customer is not in the dictionary that we created for save the state of the conversation.
