@@ -1,4 +1,5 @@
 from flask import Flask, request # This import the Flask framework and import 2 tools , flask for crearte server and request to read incoming mensages from Meta
+import sqlite3
 import requests # This import the requests library to send HTTP requests to Meta API
 import json 
 from config import ACCESS_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, CHEF_NUMBER, DELIVERY_NUMBER , GROQ_API_KEY # Goes to the config file and grab the 6 variables that we  can use here in app.p
@@ -64,6 +65,19 @@ def parse_order(ai_response):
             ai_response = "¡Pedido Confirmado¡"
     return ai_response, order
 
+def save_order_to_db(order, phone):
+    total = sum(item["precio"] * item["cantidad"] for item in order["items"])
+
+    conn = sqlite3.connect("orders.db")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO orders (phone, tipo, direccion, items, total) VALUES (?, ?, ?, ?, ?)",
+        (phone, order["tipo"], order.get("direccion"), json.dumps(order["items"]), total)
+    )
+    conn.commit()
+    conn.close()
+    print(f"DEBUG - order saved for {phone}, total: {total}", flush=True)
+
 def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and, the second one is msg_text that is the message that the customer sent to our whatsapp bot
     if from_number not in user_sessions: # It is a condicional that valid if the number of the customer is not in the dictionary that we created for save the state of the conversation.
     
@@ -75,7 +89,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
     })
     try:
         client = Groq(api_key=GROQ_API_KEY) # This is an object of the class Groq, and I put the key as a parameter and it will initialize the connection with Groq using all the functions and methods of its class
-        ai_response = client.chat.completions.create( # This line break down in the following way: "response" It is a variable that will save the AI's response, "client"is our current connection with Groq, "chat" is a subclass of Groq for sending text messages,there are more subclases like audio and image, "completions" is a subclas of chat, and "create" is a method from completions that creates the request to Groq.
+        response = client.chat.completions.create( # This line break down in the following way: "response" It is a variable that will save the AI's response, "client"is our current connection with Groq, "chat" is a subclass of Groq for sending text messages,there are more subclases like audio and image, "completions" is a subclas of chat, and "create" is a method from completions that creates the request to Groq.
             model="openai/gpt-oss-20b", # It is the AI model  that we will use, it is the most capable free model from Groq. 
             messages=[ # It is a variable named "messages" that save the instructions for Groq and the conversacion history
                 { # These are the instructions for the bot to work of correctly with the customers
@@ -155,8 +169,11 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
         )                  # for each response, 1 token ≈ 4 characters,
                         # 500 tokens ≈ ~375 words maximum,
                         # this keeps responses SHORT and FAST!
-        
+
+        ai_response = response.choices[0].message.content
         ai_response, order = parse_order(ai_response)
+        if order:
+            save_order_to_db(order, from_number)
         print(f"DEBUG - ai_response: '{ai_response}'", flush=True)
 
     except Exception as e:
