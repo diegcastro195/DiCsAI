@@ -7,7 +7,7 @@ from groq import Groq
 
 app = Flask(__name__) # It is an object named "app" from the class "Flask" and it recieves the parameter "__name__" Which is a varible that saves the name of the file. flask gets the name of the file where the code was so it can locate the file and create the web server in it.
 user_sessions = {} # this is an empty dictionary for store each customer's conversation state
-
+last_saved_order = {}
 
 def send_message(to, message): # this function is for send messages to the customers using Meta API, it takes 2 parameters, the first one is the phone number of the customer and the second one is the message that we want to send, the two parameters can be name whatever you want, but in this case we use "to" and "message" for make it more clear in spanich, "to" means "para" and "message" means "mensaje"
     url = f"https://graph.facebook.com/v25.0/{PHONE_NUMBER_ID}/messages" # this is the enpoint of the Meta API for send messages, we use f-string to insert the phone number id that we grab from config.py, this endpoint is the one that we need to call for send messages to the customers using Meta API, the enpont it's form dor 3 parts, the first part is the base url "https://graph.facebook.com/v25.0/", the second part is the phone number id that we grab from config.py and the third part is "/messages" that is the endpoint for send messages to the customers using Meta API
@@ -172,8 +172,10 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
 
         ai_response = response.choices[0].message.content
         ai_response, order = parse_order(ai_response)
-        if order:
+        
+        if order and order != last_saved_order.get(from_number):
             save_order_to_db(order, from_number)
+            last_saved_order[from_number] = order
         print(f"DEBUG - ai_response: '{ai_response}'", flush=True)
 
     except Exception as e:
