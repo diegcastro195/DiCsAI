@@ -67,6 +67,8 @@ def parse_order(ai_response):
 
 def save_order_to_db(order, phone):
     total = sum(item["precio"] * item["cantidad"] for item in order["items"])
+    if order["tipo"] == "domicilio":
+        total += 2000
 
     conn = sqlite3.connect("orders.db")
     cursor = conn.cursor()
