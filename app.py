@@ -1,11 +1,13 @@
 from flask import Flask, request # This import the Flask framework and import 2 tools , flask for crearte server and request to read incoming mensages from Meta
+import sqlite3
 import requests # This import the requests library to send HTTP requests to Meta API
+import json 
 from config import ACCESS_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, CHEF_NUMBER, DELIVERY_NUMBER , GROQ_API_KEY # Goes to the config file and grab the 6 variables that we  can use here in app.p
 from groq import Groq
 
 app = Flask(__name__) # It is an object named "app" from the class "Flask" and it recieves the parameter "__name__" Which is a varible that saves the name of the file. flask gets the name of the file where the code was so it can locate the file and create the web server in it.
 user_sessions = {} # this is an empty dictionary for store each customer's conversation state
-
+last_saved_order = {}
 
 def send_message(to, message): # this function is for send messages to the customers using Meta API, it takes 2 parameters, the first one is the phone number of the customer and the second one is the message that we want to send, the two parameters can be name whatever you want, but in this case we use "to" and "message" for make it more clear in spanich, "to" means "para" and "message" means "mensaje"
     url = f"https://graph.facebook.com/v25.0/{PHONE_NUMBER_ID}/messages" # this is the enpoint of the Meta API for send messages, we use f-string to insert the phone number id that we grab from config.py, this endpoint is the one that we need to call for send messages to the customers using Meta API, the enpont it's form dor 3 parts, the first part is the base url "https://graph.facebook.com/v25.0/", the second part is the phone number id that we grab from config.py and the third part is "/messages" that is the endpoint for send messages to the customers using Meta API
@@ -40,14 +42,45 @@ def receive_message():# it is the function for receive messages from customers a
         message = data["entry"][0]["changes"][0]["value"]["messages"][0] # it's a vatiable named "message" that save the variable data the variable data is a dictionary that contains all the information that Meta API sends in the POST request, this line is for access the specific part of the data that contains the message that the customer sent to our WhatsApp bot,  each step of this line is for access a specific level of the nested dictionary that Meta API sends, "entry" is a list that contains all the entries of the request, we take the first one with [0], "changes" is a list that contains all the changes of the entry, we take the first one with [0], "value" is a dictionary that contains the value of the change, "messages" is a list that contains all the messages that are included in the value, we take the first one with [0] because usually there is only one message per request, only the last part of this code is that we'll use for access the content of the message that the customer sent
         from_number = message["from"] # this line save the phone number of the customer that sent the message in a variable named "from_number", we access this information from the "message" variable tha was defined in the previous line.
         msg_text = message["text"]["body"].strip() # this line works like this: msg_text save the content of the "message" variable, we acces to this content with ["text"]["body"] because is a dictionary nested,  the last part is "strip()" that is a method that we use to remove any extra spaces at the beginning or at the end of the message text
+        print(f"DEBUG - customer_response: '{msg_text}'")
         handle_message(from_number, msg_text) # this line is for call the function "handle_message" that we define below and pass the "from_number" and "msg_text" as parameters for this function can process the message and generate a response for the customer.
-        print(msg_text)
+        
 
     except: # this catches any error in the try block (Meta also sends sent/delivered/read notifications without the "messages" key, which raise KeyError here), but now we log the real error instead of silencing it
         pass
     return "OK", 200 # this always runs, error or not, so Meta always gets a valid HTTP response and doesn't retry/disable the webhook
 
-def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and the second one is msg_text that is the message that the customer sent to our whatsapp bot
+def parse_order(ai_response):
+    order = None
+    if "<ORDER>" in ai_response:
+        try:
+            raw = ai_response.split("<ORDER>")[1].split("</ORDER>")[0]
+            order = json.loads(raw)
+        except Exception as e:
+            print(f"ORDER PARSE ERROR: {e}", flush=True)
+
+        ai_response = ai_response.split("<ORDER>")[0].strip()
+
+        if not ai_response:
+            ai_response = "¡Pedido Confirmado¡"
+    return ai_response, order
+
+def save_order_to_db(order, phone):
+    total = sum(item["precio"] * item["cantidad"] for item in order["items"])
+    if order["tipo"] == "domicilio":
+        total += 2000
+
+    conn = sqlite3.connect("orders.db")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO orders (phone, tipo, direccion, items, total) VALUES (?, ?, ?, ?, ?)",
+        (phone, order["tipo"], order.get("direccion"), json.dumps(order["items"]), total)
+    )
+    conn.commit()
+    conn.close()
+    print(f"DEBUG - order saved for {phone}, total: {total}", flush=True)
+
+def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and, the second one is msg_text that is the message that the customer sent to our whatsapp bot
     if from_number not in user_sessions: # It is a condicional that valid if the number of the customer is not in the dictionary that we created for save the state of the conversation.
     
         user_sessions[from_number] = [] # If the conditional is true it line will create a new key in the dicttionary with the number of the customer and it will save an empty list in it (It have to be a list for it can save the dicts with each rol and message), if the codicinal is false the it line won't run.
@@ -112,6 +145,22 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     - Solo di el precio de el domicilio si el cliente lo pregunta y da una explicacion clara y concisa de porque se cobra
 
                     - No se te olvide siempre que si el pedido es para llevar, preguntar por la direccion
+
+                    - REGLA DEL BLOQUE DE PEDIDO:
+
+                    Cuando el cliente confirme el pedido y ya tengas toda la información
+                    necesaria, termina tu respuesta con un bloque en este formato exacto:
+
+                    <ORDER>{"tipo": "domicilio", "direccion": "Calle 45 #12-30", "items": [{"nombre": "Arepa POWER", "precio": 7900, "cantidad": 1}, {"nombre": "Gaseosa", "precio": 3500, "cantidad": 2}]}</ORDER>
+
+                    Reglas del bloque:
+                    - Emítelo ÚNICAMENTE cuando el pedido esté confirmado. Nunca antes.
+                    - Un solo bloque por pedido. No lo repitas en mensajes posteriores.
+                    - Si es domicilio, "direccion" es obligatoria.
+                    - Si es para recoger, usa "tipo": "recoger" y omite "direccion".
+                    - Usa exactamente los precios del menú. No calcules totales.
+                    - Nunca menciones, expliques ni muestres este bloque al cliente.
+                    - El mensaje para el cliente va ANTES del bloque, escrito con normalidad.
                     
                     """
                 }
@@ -122,13 +171,19 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
         )                  # for each response, 1 token ≈ 4 characters,
                         # 500 tokens ≈ ~375 words maximum,
                         # this keeps responses SHORT and FAST!
-        
+
         ai_response = response.choices[0].message.content
+        ai_response, order = parse_order(ai_response)
+        
+        if order and order != last_saved_order.get(from_number):
+            save_order_to_db(order, from_number)
+            last_saved_order[from_number] = order
         print(f"DEBUG - ai_response: '{ai_response}'", flush=True)
 
     except Exception as e:
         print(f"GROQ ERROR: {e}", flush=True)
         ai_response = "Lo siento, tuve un problema. Intenta de nuevo en un momento."
+
 
     user_sessions[from_number].append({
         "role": "assistant",
