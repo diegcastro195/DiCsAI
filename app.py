@@ -79,7 +79,24 @@ def save_order_to_db(order, phone):
     conn.commit()
     conn.close()
     print(f"DEBUG - order saved for {phone}, total: {total}", flush=True)
-
+    if CHEF_NUMBER:
+        items_lines = "\n".join(
+            f"  {item['cantidad']}x {item['nombre']} (${item['precio']:,})"
+            for item in order["items"]
+        )
+        if order["tipo"] == "domicilio":
+            entrega = f"Domicilio: {order.get('direccion', 'sin direccion')}"
+        else:
+            entrega = "Para recoger en local"
+        msg = (
+            f"NUEVO PEDIDO\n"
+            f"{entrega}\n"
+            f"Items:\n{items_lines}\n"
+            f"Total: ${total:,}\n"
+            f"Cliente: {phone}"
+        )
+        send_message(CHEF_NUMBER, msg)
+        
 def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and, the second one is msg_text that is the message that the customer sent to our whatsapp bot
     if from_number not in user_sessions: # It is a condicional that valid if the number of the customer is not in the dictionary that we created for save the state of the conversation.
     
