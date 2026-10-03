@@ -9,6 +9,7 @@ app = Flask(__name__) # It is an object named "app" from the class "Flask" and i
 user_sessions = {} # this is an empty dictionary for store each customer's conversation state
 last_saved_order = {}
 order_status = {}
+customer_location = {}
 
 def send_message(to, message): # this function is for send messages to the customers using Meta API, it takes 2 parameters, the first one is the phone number of the customer and the second one is the message that we want to send, the two parameters can be name whatever you want, but in this case we use "to" and "message" for make it more clear in spanich, "to" means "para" and "message" means "mensaje"
     url = f"https://graph.facebook.com/v25.0/{PHONE_NUMBER_ID}/messages" # this is the enpoint of the Meta API for send messages, we use f-string to insert the phone number id that we grab from config.py, this endpoint is the one that we need to call for send messages to the customers using Meta API, the enpont it's form dor 3 parts, the first part is the base url "https://graph.facebook.com/v25.0/", the second part is the phone number id that we grab from config.py and the third part is "/messages" that is the endpoint for send messages to the customers using Meta API
@@ -77,9 +78,10 @@ def receive_message():# it is the function for receive messages from customers a
             lat = message["location"]["latitude"]
             lng = message["location"]["longitude"]
             maps_link = f"https://maps.google.com/?q={lat},{lng}"
+            customer_location[from_number] = maps_link
             if CHEF_NUMBER:
                 send_message(CHEF_NUMBER, f"Ubicacion de {from_number}:\n{maps_link}")
-            handle_message(from_number, f"Mi ubicacion actual es: {maps_link}")
+            send_message(from_number, "Gracias veci, ya tenemos tu ubicacion. Confirmas tu pedido?")
         elif msg_type == "text":
             msg_text = message["text"]["body"].strip()
             print(f"DEBUG - customer_response: '{msg_text}'")
@@ -238,7 +240,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     - Regla de ORO no te inventes nada si no sabes algo no digas nada
                     - Si es envio a domicilio, siempre pide la ubicacion actual SIEMRPE
 
-                    """ + (f"\n\nESTADO ACTUAL DEL PEDIDO: {order_status[from_number]}. Responde acorde a este estado." if from_number in order_status else "")
+                    """ + (f"\n\nUBICACION DEL CLIENTE YA COMPARTIDA: {customer_location[from_number]}. Usa esta como direccion de entrega. NO la pidas de nuevo." if from_number in customer_location else "") + (f"\n\nESTADO ACTUAL DEL PEDIDO: {order_status[from_number]}. Responde acorde a este estado." if from_number in order_status else "")
                 }
             ] + user_sessions[from_number], # This adds the full conversation history of the customer
                                             # So the AI can remember everithing that was said before 
