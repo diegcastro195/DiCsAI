@@ -167,7 +167,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
     try:
         client = Groq(api_key=GROQ_API_KEY) # This is an object of the class Groq, and I put the key as a parameter and it will initialize the connection with Groq using all the functions and methods of its class
         response = client.chat.completions.create( # This line break down in the following way: "response" It is a variable that will save the AI's response, "client"is our current connection with Groq, "chat" is a subclass of Groq for sending text messages,there are more subclases like audio and image, "completions" is a subclas of chat, and "create" is a method from completions that creates the request to Groq.
-            model="openai/gpt-oss-20b", # It is the AI model  that we will use, it is the most capable free model from Groq. 
+            model="llama-3.3-70b-versatile", # Better memory and context handling than gpt-oss-20b 
             messages=[ # It is a variable named "messages" that save the instructions for Groq and the conversacion history
                 { # These are the instructions for the bot to work of correctly with the customers
                     "role": "system", # It is a key-value pair that indentifies the message as instruccions for the IA
