@@ -115,9 +115,8 @@ def save_order_to_db(order, phone):
     conn = sqlite3.connect("orders.db")
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO orders (phone, tipo, direccion, items, total) VALUES (?, ?, ?, ?, ?)",
-        (phone, order["tipo"], order.get("direccion"), json.dumps(order["items"]), total)
-    )
+        "INSERT INTO orders (phone, tipo, direccion, items, total, pago, billete) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (phone, order["tipo"], order.get("direccion"), json.dumps(order["items"]), total, order.get("pago"), order.get("billete")))
     conn.commit()
     conn.close()
     print(f"DEBUG - order saved for {phone}, total: {total}", flush=True)
@@ -130,11 +129,14 @@ def save_order_to_db(order, phone):
             entrega = f"Domicilio: {order.get('direccion', 'sin direccion')}"
         else:
             entrega = "Para recoger en local"
+        if order.get("billete"):
+            pago_info += f" (billete de ${order['billete']:,})"
         msg = (
             f"NUEVO PEDIDO\n"
             f"{entrega}\n"
             f"Items:\n{items_lines}\n"
             f"Total: ${total:,}\n"
+            f"{pago_info}\n"
             f"Cliente: {phone}"
         )
         send_message(CHEF_NUMBER, msg)
