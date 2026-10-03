@@ -79,7 +79,7 @@ def receive_message():# it is the function for receive messages from customers a
             maps_link = f"https://maps.google.com/?q={lat},{lng}"
             if CHEF_NUMBER:
                 send_message(CHEF_NUMBER, f"Ubicacion de {from_number}:\n{maps_link}")
-            send_message(from_number, "Gracias veci, ya recibimos tu ubicacion")
+            handle_message(from_number, f"Mi ubicacion actual es: {maps_link}")
         elif msg_type == "text":
             msg_text = message["text"]["body"].strip()
             print(f"DEBUG - customer_response: '{msg_text}'")
@@ -217,7 +217,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     
                     - Solo di el precio de el domicilio si el cliente lo pregunta y da una explicacion clara y concisa de porque se cobra
 
-                    - No se te olvide siempre que si el pedido es para llevar, pide la ubicaion actual 
+                    - Si el pedido es domicilio, dile al cliente exactamente esto: "Para enviarte el pedido necesito tu ubicación. Por favor toca el clip 📎 → Ubicación → Enviar ubicación actual", leugo sigue con el pedido, SI YA FUE CONFIRMADO ESTA BIEN PERO SI NO HA SIDO CONFIRMADO SIGUE EL PROCESO HASTA QEU EL PEDIDO SE ENVIE A COCINA
 
                     - REGLA DEL BLOQUE DE PEDIDO:
 
