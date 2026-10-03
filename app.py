@@ -17,16 +17,23 @@ def send_message(to, message): # this function is for send messages to the custo
     }
     data = { # This is a dictionary that we call "data" because it contains the data that we need to send in the body of the HTTP request to Meta API, this data is important because it contains the information that Meta API needs to know in order to send the message to the customer, in this case we need to include 4 key-value pairs in this dictionary
         "messaging_product": "whatsapp",# this key-value pair is for tell Meta API that we are using WhatsApp as our messaging product, this is important because Meta API supports different messaging products like Instagram, Messenger, etc. and they need to know which one we are using so they can route our message correctly
-        "to": to, # it's the key-value pair for tell Meta API the phone number of the customer that we want to send the message to, we use the "to" parameter that we receive in the function, this is important because Meta API needs to know where to send the message
+        #"to": to, # it's the key-value pair for tell Meta API the phone number of the customer that we want to send the message to, we use the "to" parameter that we receive in the function, this is important because Meta API needs to know where to send the message
         "type": "text",# this is the key-value pair for tell Meta API that the type of message we are sending is a text message, this is important because Meta API supports different types of messages like images, videos, etc. and they need to know which one we are sending so they can handle it correctly
         "text": {"body": message} # this is the key-value pair for tell Meta API the content of the text message that we want to send, we use the "message" parameter that we receive in the function, this is important because Meta API needs to know what is the content of the message so they can send it to the customer
     }
+    if str(to).isdigit():
+        data["to"] = to
+    else:
+        data["recipient"] = to
+
     response = requests.post(url, headers=headers, json=data) # this line is for send the HTTP POST request to Meta API using the requests library, we include the url, headers and data that we defined in the previous lines, this is important because this is the line that actually sends the message to the customer using Meta API, if we don't include this line or if we make a mistake in it, our function won't work and we won't be able to send messages to the customers, post is the method that we use for send data to Meta API, we need to use post because we are sending data in the body of the request, if we use get it won't work because get is for request data from Meta API, not for send data to Meta API
     print(f"Meta status: {response.status_code}")  # ← add this!
-    print(f"Meta response: {response.text}")  
+    print(f"Meta response: {response.text}") 
+ 
 
 @app.route("/webhook", methods=["GET"]) # this line is made up for: "@" this is the decorator symbol, it adds extra behavior to the function that we define directly below it, "app.route" "app" is our flask server and ".route" is a method that we use to connects a URL to a function, when that URL receives a request, that function runs "/webhook" is the last part of the URL that we want to connect to the function and "methods=["GET"]" is for reading incoming messages from Meta API, Meta API sends a GET request to this URL when it wants to verify our webhook, this is important because we need to have this route and this method for be able to connect our server with Meta API and receive messages from the Meta API, if we want to receive messages from Meta API we have to take the python app.py  and ngrok run in terminal without it the bot can't receive messages from Meta API. This line is for tell our Flask server that when it receives a GET request to the "/webhook" URL, it should run the function "verify_webhook" that we define below, this is important because this is how we connect our server with Meta API for the verification process, if we don't include this line or if we make a mistake in it, Meta API won't be able to verify our webhook and we won't be able to receive messages from Meta API
 def verify_webhook(): # This is the function that runs When meta API sends a GET request, it is made up for: "def" this is the keyword for define a function, "verify_webhook" is the name of the function and "()" means that this function doesn't receive any parameters because this function don't need any information of outside.
+    
     mode = request.args.get("hub.mode") # this line save the hub.mode parameter that Meta API sends in the GET request in a variable named "mode", we use "request.args.get" to get the value of the parameter from the URL query string, this is important because Meta API sends this parameter to tell us what is the purpose of the GET request, if we don't include this line or if we make a mistake in it, we won't be able to verify our webhook correctly, "request" is the object that Flask provides to access the incoming request data, "args" is the dictionary  that contains the query parameters of the URL and "get" is the method that we use to get the value of a specific parameter by its name, in this case we want to get the value of "hub.mode" parameter that Meta API sends for verification, this parameter is important because it tells us if the GET request is for verification or for something else, if we don't check this parameter we might end up accepting requests that are not for verification and that could be a security risk this parameter always is named "suscribe" this is the key word. args.get() it's only used for get the query parameters of the URL.
     token = request.args.get("hub.verify_token") # this line is the sama as the previous one but for it we're going to get the "hub.verify_token" that is the name of the password field because we need verify if it's the same that we set in config.py and we're going to save it in a variable named "token".
     challenge = request.args.get("hub.challenge") # this line is the same as the previous one  but for it we're going to get the "hub.challenge" that is a random string that Meta API sends in the GET request for verification and this is saved in a variable named "challenge". with this variable we'll say to Meta "ok we accept your request" and this code is for meta know that we want to accept this one.
@@ -36,9 +43,10 @@ def verify_webhook(): # This is the function that runs When meta API sends a GET
 
 @app.route("/webhook", methods=["POST"])# it line does the same as the previous @app.route but this time we use "POST" method because this is for receive the messages that customers send to our WhatsApp bot, we use POST method because it can read the body of the request that Meta API sends, the GET method only can read the query parameters of the URL.
 def receive_message():# it is the function for receive messages from customers and get parameter number and message of customer for "handle_message" function runs , this function it's named "receive_message"
+    print(request.get_json())
     data = request.get_json() # it's a variable named "data" that save the JSON data that Meta API sends and save it in the body of the POST request, request.get_json() it is a method only used for read the JSON data from the body and convert it into a Python dictionary that we can work with.
     # print(data) This line is for print the data that we receive from Meta API in the terminal
-    try: # try is use for handle errors, in this case meta API sends diferents types of requests to our webhook, not only the messages that customers send, but also notifications about the status of the messages, delivery reports, etc. and we only want to process the messages that customers send, if we try to access data that doesn't exist in the request we will get an error and our server might crash, so we use try-except block to handle this situation and avoid that our server crashes when we receive a request that doesn't have the expected data.
+    """try: # try is use for handle errors, in this case meta API sends diferents types of requests to our webhook, not only the messages that customers send, but also notifications about the status of the messages, delivery reports, etc. and we only want to process the messages that customers send, if we try to access data that doesn't exist in the request we will get an error and our server might crash, so we use try-except block to handle this situation and avoid that our server crashes when we receive a request that doesn't have the expected data.
         message = data["entry"][0]["changes"][0]["value"]["messages"][0] # it's a vatiable named "message" that save the variable data the variable data is a dictionary that contains all the information that Meta API sends in the POST request, this line is for access the specific part of the data that contains the message that the customer sent to our WhatsApp bot,  each step of this line is for access a specific level of the nested dictionary that Meta API sends, "entry" is a list that contains all the entries of the request, we take the first one with [0], "changes" is a list that contains all the changes of the entry, we take the first one with [0], "value" is a dictionary that contains the value of the change, "messages" is a list that contains all the messages that are included in the value, we take the first one with [0] because usually there is only one message per request, only the last part of this code is that we'll use for access the content of the message that the customer sent
         from_number = message["from"] # this line save the phone number of the customer that sent the message in a variable named "from_number", we access this information from the "message" variable tha was defined in the previous line.
         msg_text = message["text"]["body"].strip() # this line works like this: msg_text save the content of the "message" variable, we acces to this content with ["text"]["body"] because is a dictionary nested,  the last part is "strip()" that is a method that we use to remove any extra spaces at the beginning or at the end of the message text
@@ -48,8 +56,39 @@ def receive_message():# it is the function for receive messages from customers a
 
     except: # this catches any error in the try block (Meta also sends sent/delivered/read notifications without the "messages" key, which raise KeyError here), but now we log the real error instead of silencing it
         pass
-    return "OK", 200 # this always runs, error or not, so Meta always gets a valid HTTP response and doesn't retry/disable the webhook
+    return "OK", 200 # this always runs, error or not, so Meta always gets a valid HTTP response and doesn't retry/disable the webhook"""
+    try:
+        value = data["entry"][0]["changes"][0]["value"]
 
+        if "messages" not in value:
+            return "OK", 200  # avisos de estado (sent/delivered/read), no hay nada que responder
+
+        message = value["messages"][0]
+        from_number = message.get("from") or message.get("from_user_id")
+
+        if not from_number:
+            print(f"SIN REMITENTE: {message}", flush=True)
+            return "OK", 200
+
+        msg_type = message.get("type", "text")
+
+        if msg_type == "location":
+            lat = message["location"]["latitude"]
+            lng = message["location"]["longitude"]
+            maps_link = f"https://maps.google.com/?q={lat},{lng}"
+            if CHEF_NUMBER:
+                send_message(CHEF_NUMBER, f"Ubicacion de {from_number}:\n{maps_link}")
+            send_message(from_number, "Gracias veci, ya recibimos tu ubicacion")
+        elif msg_type == "text":
+            msg_text = message["text"]["body"].strip()
+            print(f"DEBUG - customer_response: '{msg_text}'")
+            handle_message(from_number, msg_text)
+        else:
+            send_message(from_number, "Veci, por ahora solo entiendo mensajes de texto. Escríbeme qué quieres pedir.")
+
+    except Exception as e:
+        print(f"WEBHOOK ERROR: {e}", flush=True)
+    return "OK", 200
 def parse_order(ai_response):
     order = None
     if "<ORDER>" in ai_response:
@@ -98,6 +137,20 @@ def save_order_to_db(order, phone):
         send_message(CHEF_NUMBER, msg)
         
 def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and, the second one is msg_text that is the message that the customer sent to our whatsapp bot
+    if from_number == CHEF_NUMBER:
+        parts = msg_text.strip().split(" ", 1)
+        command = parts[0].lower()
+        if command == "listo" and len(parts) > 1:
+            customer_phone = parts[1].strip()
+            send_message(customer_phone, "Tu pedido ya va en camino, en unos minutos llega veci!")
+            send_message(CHEF_NUMBER, f"Notificado {customer_phone}")
+            return
+        elif command == "entregado" and len(parts) > 1:
+            customer_phone = parts[1].strip()
+            send_message(customer_phone, "Pedido entregado! Gracias por tu compra en REYPAS, vuelve pronto veci!")
+            send_message(CHEF_NUMBER, f"Entregado {customer_phone}")
+            return
+
     if from_number not in user_sessions: # It is a condicional that valid if the number of the customer is not in the dictionary that we created for save the state of the conversation.
     
         user_sessions[from_number] = [] # If the conditional is true it line will create a new key in the dicttionary with the number of the customer and it will save an empty list in it (It have to be a list for it can save the dicts with each rol and message), if the codicinal is false the it line won't run.
@@ -123,8 +176,8 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
 
                     Menú:
                     Arepas
-                    Arepa BURGER $14900
-                    Arepa TIPICA $12900
+                    Arepa Queso $2500
+                    Arepa Jamon y Queso $12900
                     Arepa POWER $7900
                     Arepa ReQuesuda $4500
                     Arepa JQ $2900
@@ -148,7 +201,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     7. Respuestas CORTAS y directas
                     8. Arepa burguer lleva carne, jamon, queso, lechuga, salsas al gusto, arepa tipica lleva carne, arepa power lleva Huevos, arepa requesuda lleva queso, arepa jq lleva jamon y queso, arepa sencilla lleva solo arepa.
                     9. Si el cliente pide el menu mandale este link https://reypas-menu.netlify.app/ y ponle un mensaje bonito mas el link
-                    10. Solo responde preguntas sobre el pedidos si pregunta cualquier otra cosa dile que solo respondes mensajes de el pedido
+                    10. Si el cliente saluda o dice cualquier cosa informal, respóndele amigable usando palabras como "veci", "dale veci", "hola veci". Luego pregúntale que queire pedir.
                     11. Sugierele productos especificos con nombre y precio  al cleinte para subir el tiket por pedido, hablale de forma que el client acpte hablale muy convncente 
 
                     - Responde siempre en español!
