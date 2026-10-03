@@ -8,6 +8,7 @@ from groq import Groq
 app = Flask(__name__) # It is an object named "app" from the class "Flask" and it recieves the parameter "__name__" Which is a varible that saves the name of the file. flask gets the name of the file where the code was so it can locate the file and create the web server in it.
 user_sessions = {} # this is an empty dictionary for store each customer's conversation state
 last_saved_order = {}
+order_status = {}
 
 def send_message(to, message): # this function is for send messages to the customers using Meta API, it takes 2 parameters, the first one is the phone number of the customer and the second one is the message that we want to send, the two parameters can be name whatever you want, but in this case we use "to" and "message" for make it more clear in spanich, "to" means "para" and "message" means "mensaje"
     url = f"https://graph.facebook.com/v25.0/{PHONE_NUMBER_ID}/messages" # this is the enpoint of the Meta API for send messages, we use f-string to insert the phone number id that we grab from config.py, this endpoint is the one that we need to call for send messages to the customers using Meta API, the enpont it's form dor 3 parts, the first part is the base url "https://graph.facebook.com/v25.0/", the second part is the phone number id that we grab from config.py and the third part is "/messages" that is the endpoint for send messages to the customers using Meta API
@@ -142,11 +143,13 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
         command = parts[0].lower()
         if command == "listo" and len(parts) > 1:
             customer_phone = parts[1].strip()
+            order_status[customer_phone] = "en camino"
             send_message(customer_phone, "Tu pedido ya va en camino, en unos minutos llega veci!")
             send_message(CHEF_NUMBER, f"Notificado {customer_phone}")
             return
         elif command == "entregado" and len(parts) > 1:
             customer_phone = parts[1].strip()
+            order_status[customer_phone] = "entregado"
             send_message(customer_phone, "Pedido entregado! Gracias por tu compra en REYPAS, vuelve pronto veci!")
             send_message(CHEF_NUMBER, f"Entregado {customer_phone}")
             return
@@ -177,7 +180,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     Menú:
                     Arepas
                     Arepa Queso $2500
-                    Arepa Jamon y Queso $12900
+                    Arepa Jamon y Queso $3000
                     Arepa POWER $7900
                     Arepa ReQuesuda $4500
                     Arepa JQ $2900
@@ -206,7 +209,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
 
                     - Responde siempre en español!
                     
-                    - Si alguien te pregunta sobre quien te creo di, soy una empresa de inteligencia Aretificial llamada DiCsAI que automatiza los mesajes por whatsapp.
+                    - Si alguien te pregunta sobre quien te creo no digas nada
 
                     - Recuerda esto siempre: Si el cliente no responde, no mandes mas mensajes espera a que el cliente vuelva a escribir para volver a enviar mensajes.
 
@@ -214,7 +217,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     
                     - Solo di el precio de el domicilio si el cliente lo pregunta y da una explicacion clara y concisa de porque se cobra
 
-                    - No se te olvide siempre que si el pedido es para llevar, preguntar por la direccion
+                    - No se te olvide siempre que si el pedido es para llevar, pide la ubicaion actual 
 
                     - REGLA DEL BLOQUE DE PEDIDO:
 
@@ -226,13 +229,16 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     Reglas del bloque:
                     - Emítelo ÚNICAMENTE cuando el pedido esté confirmado. Nunca antes.
                     - Un solo bloque por pedido. No lo repitas en mensajes posteriores.
-                    - Si es domicilio, "direccion" es obligatoria.
+                    - Si es domicilio, "pide ubicaion actaul" es obligatoria.
                     - Si es para recoger, usa "tipo": "recoger" y omite "direccion".
                     - Usa exactamente los precios del menú. No calcules totales.
                     - Nunca menciones, expliques ni muestres este bloque al cliente.
                     - El mensaje para el cliente va ANTES del bloque, escrito con normalidad.
-                    
-                    """
+
+                    - Regla de ORO no te inventes nada si no sabes algo no digas nada
+                    - Si es envio a domicilio, siempre pide la ubicacion actual SIEMRPE
+
+                    """ + (f"\n\nESTADO ACTUAL DEL PEDIDO: {order_status[from_number]}. Responde acorde a este estado." if from_number in order_status else "")
                 }
             ] + user_sessions[from_number], # This adds the full conversation history of the customer
                                             # So the AI can remember everithing that was said before 
