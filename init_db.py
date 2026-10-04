@@ -11,6 +11,8 @@ cursor.execute("""
         direccion TEXT,
         items TEXT,
         total INTEGER,
+        pago TEXT,
+        billete INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
 """)

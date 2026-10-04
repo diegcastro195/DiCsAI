@@ -115,9 +115,8 @@ def save_order_to_db(order, phone):
     conn = sqlite3.connect("orders.db")
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO orders (phone, tipo, direccion, items, total) VALUES (?, ?, ?, ?, ?)",
-        (phone, order["tipo"], order.get("direccion"), json.dumps(order["items"]), total)
-    )
+        "INSERT INTO orders (phone, tipo, direccion, items, total, pago, billete) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (phone, order["tipo"], order.get("direccion"), json.dumps(order["items"]), total, order.get("pago"), order.get("billete")))
     conn.commit()
     conn.close()
     print(f"DEBUG - order saved for {phone}, total: {total}", flush=True)
@@ -130,11 +129,15 @@ def save_order_to_db(order, phone):
             entrega = f"Domicilio: {order.get('direccion', 'sin direccion')}"
         else:
             entrega = "Para recoger en local"
+        pago_info = f"Pago: {order.get('pago', 'no especificado')}"
+        if order.get("billete"):
+            pago_info += f" (billete de ${order['billete']:,})"
         msg = (
             f"NUEVO PEDIDO\n"
             f"{entrega}\n"
             f"Items:\n{items_lines}\n"
             f"Total: ${total:,}\n"
+            f"{pago_info}\n"
             f"Cliente: {phone}"
         )
         send_message(CHEF_NUMBER, msg)
@@ -167,7 +170,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
     try:
         client = Groq(api_key=GROQ_API_KEY) # This is an object of the class Groq, and I put the key as a parameter and it will initialize the connection with Groq using all the functions and methods of its class
         response = client.chat.completions.create( # This line break down in the following way: "response" It is a variable that will save the AI's response, "client"is our current connection with Groq, "chat" is a subclass of Groq for sending text messages,there are more subclases like audio and image, "completions" is a subclas of chat, and "create" is a method from completions that creates the request to Groq.
-            model="llama-3.3-70b-versatile", # Better memory and context handling than gpt-oss-20b 
+            model="openai/gpt-oss-120b", # Better memory and context handling than gpt-oss-20b 
             messages=[ # It is a variable named "messages" that save the instructions for Groq and the conversacion history
                 { # These are the instructions for the bot to work of correctly with the customers
                     "role": "system", # It is a key-value pair that indentifies the message as instruccions for the IA
@@ -210,6 +213,8 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     11. Si el cliente no ha pedido bebida aun, mencionale una opcion de bebida de forma natural. NUNCA uses la frase "subir el ticket", habla como un amigo.
                     12. Si el cliente pregunta por algo "caliente" siempre ofrece primero las bebidas calientes: Tinto $2500, Perico $3500, Milo $3500. Solo ofrece comida caliente si el cliente lo especifica.
                     13. NUNCA olvides los items que el cliente ya pidio en mensajes anteriores. Si el cliente agrega algo nuevo, mantenlo junto a lo anterior.
+                    14. Antes de confirmar el pedido, pregunta: "¿Cómo vas a pagar, efectivo o transferencia?" Si es efectivo, pregunta también: "¿Con qué billete vas a pagar? para poder llevarle las vueltas"
+
 
                     - Responde siempre en español!
                     
@@ -228,7 +233,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     Cuando el cliente confirme el pedido y ya tengas toda la información
                     necesaria, termina tu respuesta con un bloque en este formato exacto:
 
-                    <ORDER>{"tipo": "domicilio", "direccion": "Calle 45 #12-30", "items": [{"nombre": "Arepa POWER", "precio": 7900, "cantidad": 1}, {"nombre": "Gaseosa", "precio": 3500, "cantidad": 2}]}</ORDER>
+                    <ORDER>{"tipo": "domicilio", "direccion": "Calle 45 #12-30", "items": [{"nombre": "Arepa POWER", "precio": 7900, "cantidad": 1}, {"nombre": "Gaseosa", "precio": 3500, "cantidad": 2}], "pago": "efectivo", "billete": 50000}</ORDER>
 
                     Reglas del bloque:
                     - Emítelo ÚNICAMENTE cuando el pedido esté confirmado. Nunca antes.
