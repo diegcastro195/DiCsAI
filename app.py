@@ -10,6 +10,7 @@ user_sessions = {} # this is an empty dictionary for store each customer's conve
 last_saved_order = {}
 order_status = {}
 customer_location = {}
+order_tipo = {}
 
 def send_message(to, message): # this function is for send messages to the customers using Meta API, it takes 2 parameters, the first one is the phone number of the customer and the second one is the message that we want to send, the two parameters can be name whatever you want, but in this case we use "to" and "message" for make it more clear in spanich, "to" means "para" and "message" means "mensaje"
     url = f"https://graph.facebook.com/v25.0/{PHONE_NUMBER_ID}/messages" # this is the enpoint of the Meta API for send messages, we use f-string to insert the phone number id that we grab from config.py, this endpoint is the one that we need to call for send messages to the customers using Meta API, the enpont it's form dor 3 parts, the first part is the base url "https://graph.facebook.com/v25.0/", the second part is the phone number id that we grab from config.py and the third part is "/messages" that is the endpoint for send messages to the customers using Meta API
@@ -108,6 +109,7 @@ def parse_order(ai_response):
     return ai_response, order
 
 def save_order_to_db(order, phone):
+    order_tipo[phone] = order["tipo"]
     total = sum(item["precio"] * item["cantidad"] for item in order["items"])
     if order["tipo"] == "domicilio":
         total += 2000
@@ -148,8 +150,12 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
         command = parts[0].lower()
         if command == "listo" and len(parts) > 1:
             customer_phone = parts[1].strip()
-            order_status[customer_phone] = "en camino"
-            send_message(customer_phone, "Tu pedido ya va en camino, en unos minutos llega veci!")
+            if order_tipo.get(customer_phone) == "recoger":
+                order_status[customer_phone] = "listo para recoger"
+                send_message(customer_phone, "Tu pedido ya esta listo, ya puedes pasar por el veci!")
+            else:
+                order_status[customer_phone] = "en camino"
+                send_message(customer_phone, "Tu pedido ya va en camino, en unos minutos llega veci!")
             send_message(CHEF_NUMBER, f"Notificado {customer_phone}")
             return
         elif command == "entregado" and len(parts) > 1:
@@ -178,7 +184,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     "content": """ Eres el asistente de REYPAS, arepería en Bogotá. Responde en español, natural, corto y directo.
 
                     1. MENÚ
-                    1.1 Arepas: Quesuda (1 lonja de queso) $2500 | JQ Jamón y Queso $3000 | POWER (huevos) $6000 | ReQuesuda (queso) $4000 | Sencilla (solo arepa) $1200
+                    1.1 Arepas: Quesuda (1 lonja de queso) $2500 | JQ (1 lonja de Jamon 1 de queso) $3000 | Arepa POWER o tambien es llamada arepa de Huevo Jamon y Queso (2 huevos, 1 lonja de Jamon y Una de Queso) $6000 | ReQuesuda (2 lonjas queso) $4000 | Sencilla (solo arepa) $1200 | Todas con mantequilla y sal al gusto
                     1.2 Bebidas: Coca Cola 350ml $3500 | Hit Personal 350 $3500 | Tinto $1300 | Perico $1600 | Milo $2500 | Cola Granulada en leche $2500
                     1.3 Adicionales: lonja de queso extra $1800 c/u | lonja de jamón extra $1000 c/u
 
