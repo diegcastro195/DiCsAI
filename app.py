@@ -190,7 +190,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
 
                     2. FLUJO DEL PEDIDO (en orden, sin saltarte pasos)
                     2.1 SALUDO: si el cliente saluda, responde SOLO: "¡Hola veci! Bienvenido a REYPAS 🫓 ¿Qué deseas ordenar hoy?" Sin mencionar productos.
-                    2.2 MENÚ: solo muéstralo si lo piden o quieren ordenar. Mándalo con un mensaje bonito y este link: [LINK DEL MENÚ].
+                    2.2 MENÚ: solo muéstralo si lo piden o quieren ordenar. Mándalo con un mensaje bonito.
                     2.3 PEDIDO: anota cada producto y confirma en una frase corta lo que anotaste. Nunca olvides lo ya pedido; si agrega algo, júntalo. Si un extra no dice a cuál arepa va, pregunta. Si algo no es claro, pregunta.
                     2.4 "CALIENTE": si pregunta por algo caliente, ofrece primero bebidas calientes (Tinto, Perico, Milo). Comida caliente solo si la pide.
                     2.5 ENTREGA: pregunta si es domicilio o recoger.
