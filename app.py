@@ -129,6 +129,7 @@ def save_order_to_db(order, phone):
             entrega = f"Domicilio: {order.get('direccion', 'sin direccion')}"
         else:
             entrega = "Para recoger en local"
+        pago_info = f"Pago: {order.get('pago', 'no especificado')}"
         if order.get("billete"):
             pago_info += f" (billete de ${order['billete']:,})"
         msg = (
