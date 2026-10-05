@@ -4,6 +4,8 @@ import requests # This import the requests library to send HTTP requests to Meta
 import json 
 from config import ACCESS_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, CHEF_NUMBER, DELIVERY_NUMBER , GROQ_API_KEY # Goes to the config file and grab the 6 variables that we  can use here in app.p
 from groq import Groq
+from datetime import datetime
+import pytz
 
 app = Flask(__name__) # It is an object named "app" from the class "Flask" and it recieves the parameter "__name__" Which is a varible that saves the name of the file. flask gets the name of the file where the code was so it can locate the file and create the web server in it.
 user_sessions = {} # this is an empty dictionary for store each customer's conversation state
@@ -145,6 +147,15 @@ def save_order_to_db(order, phone):
         send_message(CHEF_NUMBER, msg)
         
 def handle_message(from_number, msg_text): # It is a function named "handle_message" that receives two parameters, the firt one is from_number that is the phone number of the cutomer and, the second one is msg_text that is the message that the customer sent to our whatsapp bot
+    bogota = pytz.timezone("America/Bogota")
+    now = datetime.now(bogota)
+    is_monday = now.weekday() == 0
+    is_open = now.hour * 60 + now.minute >= 6 * 60 + 30 and now.hour * 60 + now.minute < 11 * 60 + 30
+
+    if is_monday or not is_open:
+        send_message(from_number, "Lo siento veci, en este momento estamos cerrados. Puedes escribirnos de martes a domingo de 6:30am a 11:30am")
+        return
+    
     if from_number == CHEF_NUMBER:
         parts = msg_text.strip().split(" ", 1)
         command = parts[0].lower()
@@ -197,7 +208,7 @@ def handle_message(from_number, msg_text): # It is a function named "handle_mess
                     2.6 UBICACIÓN (solo domicilio): dile exactamente: "Para enviarte el pedido necesito tu ubicación. Por favor toca el clip 📎 → Ubicación → Enviar ubicación actual". Si ya la compartió, no la pidas de nuevo.
                     2.7 PAGO: pregunta "¿Cómo vas a pagar, efectivo o transferencia?"
                     2.8 BILLETE (solo efectivo Y domicilio): pregunta "¿Con qué billete vas a pagar? para poder llevarle las vueltas"
-                    2.9 CONFIRMACIÓN: muestra los productos con cantidad y precio y el TOTAL. Si es domicilio, suma $2000 al total y muestra solo el resultado final, sin línea de domicilio ni decir que lo incluye. Pregunta si todo está correcto. No cierres hasta que diga que sí.
+                    2.9 CONFIRMACIÓN: muestra los productos con cantidad y precio y el TOTAL. Si es domicilio, suma $2000 al total y muestra solo el resultado final, sin línea de domicilio ni decir que lo incluye. Pregunta si todo está correcto. No cierres hasta que diga que sí, SOLO CONFIRMA EL PEDIDO CUANDO YA SE HALLA PREGUNTADO SI ES DOMICILIO O PARA RECOGER , YA HALLA DADO UBICACION , YA HALLA ESCODIGO PRODUCTOS Y MEDIO DE PAGO TODOSMLOS PASOS ANTERIORES ANTES DE CONFIRMAR PEDIDO.
                     2.10 AGRADECIMIENTO: al confirmar, agradece por comprar en REYPAS en un mensaje corto y pon el bloque ORDER.
 
                     3. REGLAS
